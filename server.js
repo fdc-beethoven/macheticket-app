@@ -247,6 +247,7 @@ app.command("/versionbug", async ({ ack, body, client, respond }) => {
   if (request[0] === "create") {
     let createVersionBugModal = {
       "type": "modal",
+      callback_id: "create_versionbug_modal",
       "title": {
         "type": "plain_text",
         "text": "Create Version Bug",
@@ -413,16 +414,6 @@ app.command("/versionbug", async ({ ack, body, client, respond }) => {
     });
     console.log(response);
   }
-});
-
-app.view("create_versionbug_modal", async ({ ack, body, view, client }) => {
-  await ack();
-  const vbSummary = view.state.values.jira_summary.value;
-  const vbDescription = view.state.values.jira_description.value;
-  const vbComponents = view.state.values.select_jira_components.selected_options.map((option) => {return {"name": option.text.text}});
-  const vbPriority = view.state.values.select_jira_priority.selected_option.text.text;
-  const vbFeatureType = view.state.values.select_feature_type.selected_option.value;
-
 });
 
 //handle legacy attachment action when estimate button clicked
@@ -932,38 +923,11 @@ async function getJiraComponents() {
   let url = "https://native-camp.atlassian.net/rest/api/2/project/MCT/components";;
 
   const response = await axios.get(url, {
-    headers: jiraHeaders
+    headers: {
+      'Authorization': `Basic ${Buffer.from(`${jiraUser}:${jiraToken}`).toString('base64')}`,
+      'Content-Type': 'application/json'
+    }
   });
 
   return response.data.map(({ name }) => name);
-}
-
-async function createJiraVersionBug(projectKey, summary, description, priority, components, featureType) {
-	let payload = {
-		"fields": {
-			"project": {
-				"key": projectKey
-			},
-      "assignee": {
-        "id": "712020:553252e8-7120-4b28-956c-f1bba6deebd9" //Ko-san
-      },
-			//"reporter": {"accountId": reporter},
-			"summary": summary,
-			"description": description,
-			"issuetype": {
-				"name": "Feature"
-			},
-			"priority": {
-				"name": priority
-			},
-			"components": components,
-			"customfield_10258": {
-				"id": featureType
-			}
-		},
-	}
-	const response = await axios.post("https://native-camp.atlassian.net/rest/api/2/issue", payload, {
-    headers: jiraHeaders
-  });
-  return response;
 }

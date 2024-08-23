@@ -2,7 +2,7 @@
   "name": "macheticket-bolt-app",
   "version": "1.0.0",
   "description": "Slack Bot for automating MacheTalk workflow",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
