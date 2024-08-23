@@ -4,11 +4,12 @@
   "description": "Slack Bot for automating MacheTalk workflow",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@slack/bolt": "^3.19.0"
+    "@slack/bolt": "^3.21.1",
+    "axios": "^1.7.4"
   }
 }
