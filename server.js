@@ -439,7 +439,7 @@ app.use(async ({ ack, client, body, next }) => {
 (async () => {
   await app.start(process.env.PORT || 3000);
 
-  console.log("⚡️ Bolt app is running!");
+  console.log("⚡️ Bolt app is running!" + process.env.PORT);
 })();
 
 // ========== helper functions ==========
