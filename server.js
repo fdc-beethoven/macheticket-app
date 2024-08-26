@@ -161,7 +161,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
 
   if (canApprove && approver.includes(whoClickedApprove)) {
     originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
-    originalMessage.blocks[0] = {
+    originalMessage[0] = {
       type: "section",
       text: {
         type: "mrkdwn",
