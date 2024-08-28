@@ -1,4 +1,4 @@
-const { App } = require("@slack/bolt");
+const { App, ExpressReceiver } = require("@slack/bolt");
 const axios = require("axios");
 
 const dateToday = new Date();
@@ -24,9 +24,18 @@ const leadsUserId = {
 
 const pmUserId = process.env.PM_USER_ID;
 
+const expressReceiver = new ExpressReceiver({
+  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  endpoints: "/slack/events",
+})
+
+expressReceiver.router.get('/ping', (req, res) => {
+  res.status(200).send('OK');
+})
+
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  receiver: expressReceiver
 });
 // ========== ENTER BOLT CODE AFTER THIS LINE  ==========
 app.command("/post-ticket", async ({ command, ack, respond, client }) => {
