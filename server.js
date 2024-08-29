@@ -153,10 +153,10 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
       icon_url: requesterProfilePhotoUrl,
     });
     let slackAssigneeName = (await client.users.info({user: body.user.id})).user.profile.display_name;
-    let jiraAssigneeId = await getJiraAccountId(slackAssigneeName)[0].accountId;
-    console.log(jiraAssigneeId);
-    let jiraResponse = await updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate);
-    console.log(slackResponse.ok, jiraResponse.status);
+    let jiraAssigneeId = await getJiraAccountId(slackAssigneeName);
+    console.log(jiraAssigneeId[0].accountId);
+    let jiraResponse = await updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate,jiraAssigneeId[0].accountId);
+    console.log(slackResponse.status, jiraResponse);
   }
 });
 
@@ -709,7 +709,7 @@ async function updateJiraSubtasks(
   issueKey,
   action_item,
   platform_array,
-  deadline
+  deadline, assignee
 ) {
   // Step 1: Construct JQL query
   const baseJQL = `project = MCT AND type = Sub-task AND parent = ${issueKey} AND summary ~ "${action_item}"`;
@@ -747,8 +747,18 @@ async function updateJiraSubtasks(
           fieldId: "customfield_10023",
         },
       ],
+      multipleSelectClearableUserPickerFields: [
+      {
+        fieldId: "assignee",
+        users: [
+          {
+            accountId: `${assignee}`,
+          }
+        ]
+      }
+    ],
     },
-    selectedActions: ["customfield_10023"],
+    selectedActions: ["customfield_10023", "assignee"],
     selectedIssueIdsOrKeys: subtaskIssueKeys,
   };
 
@@ -942,7 +952,8 @@ async function getJiraComponents() {
 }
 
 async function getJiraAccountId(slackDisplayName) {
-  axios.get(`https://native-camp.atlassian.net/rest/api/3/user?query=${slackDisplayName}`, {
+  let response = await axios.get(`https://native-camp.atlassian.net/rest/api/3/user/search?query=${slackDisplayName}`, {
     headers: jiraHeaders
   });
+  return response.data;
 }
