@@ -134,7 +134,7 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
   let dl_reason = view.state.values.dl_reason.dl_reason_action.value;
   let arrPlatformLead = getLeadId(strPlatform, actionItem, issueKey);
   console.log(arrPlatformLead);
-  let arrApproverMentioned = arrPlatformLead.includes((leadId) => leadId === requesterId) ? [pmUserId] : arrPlatformLead;
+  let arrApproverMentioned = arrPlatformLead.includes(requesterId) ? [pmUserId] : arrPlatformLead;
   console.log(arrPlatformLead.includes((leadId) => leadId === requesterId));
   let assignedBEId = view.blocks[5].elements[2].text;
 
