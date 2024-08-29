@@ -133,9 +133,7 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
   let formatted_dl_estimate = formatDate(dl_estimate);
   let dl_reason = view.state.values.dl_reason.dl_reason_action.value;
   let arrPlatformLead = getLeadId(strPlatform, actionItem, issueKey);
-  console.log(arrPlatformLead);
   let arrApproverMentioned = arrPlatformLead.includes(requesterId) ? [pmUserId] : arrPlatformLead;
-  console.log(arrPlatformLead.includes((leadId) => leadId === requesterId));
   let assignedBEId = view.blocks[5].elements[2].text;
 
   let modal_errors = checkEstimationModalErrors(formatted_dl_estimate,md_estimate,view);
@@ -449,7 +447,7 @@ app.use(async ({ ack, client, body, next }) => {
 (async () => {
   await app.start(process.env.PORT || 3000);
 
-  console.log("⚡️ Bolt app is running!" + process.env.PORT);
+  console.log("⚡️ Bolt app is running at PORT " + process.env.PORT);
 })();
 
 // ========== helper functions ==========
@@ -724,7 +722,6 @@ async function updateJiraSubtasks(
   const platformJQL = platformConditions.join(" OR ");
   const fullJQL = `${baseJQL} AND (${platformJQL}) ORDER BY created DESC`;
   const encodedJQLquery = encodeURIComponent(fullJQL);
-  console.log(encodedJQLquery);
 
   // Step 2: Get Jira subtasks
   const jiraUrl = `https://native-camp.atlassian.net/rest/api/3/search?jql=${encodedJQLquery}`;
@@ -732,10 +729,8 @@ async function updateJiraSubtasks(
   const jiraSubtasksResponse = await axios.get(jiraUrl, {
     headers: jiraHeaders,
   });
-  console.log(jiraSubtasksResponse);
   const jiraSubtasks = jiraSubtasksResponse.data;
   const subtaskIssueKeys = jiraSubtasks.issues.map((subtask) => subtask.key);
-  console.log(subtaskIssueKeys);
 
   // Step 3: Update Jira subtasks
   const payload = {
