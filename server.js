@@ -117,7 +117,7 @@ app.command("/estimate", async ({ command, ack, respond, client }) => {
   }
 });
 
-app.view("estimation_modal", async ({ ack, view, client, body, respond }) => {
+app.view("estimation_modal", async ({ ack, view, client, body}) => {
   await ack();
   const pmUserId = process.env.PM_USER_ID;
   let requesterId = body.user.id;
@@ -138,10 +138,11 @@ app.view("estimation_modal", async ({ ack, view, client, body, respond }) => {
 
   let modal_errors = checkEstimationModalErrors(formatted_dl_estimate,md_estimate,view);
   if (Object.keys(modal_errors).length > 0) {
-    await respond({
+    await ack({
       response_action: "errors",
       errors: modal_errors,
     });
+    return;
   } else {
     let estimateBlock = createEstimateBlock(requesterId,actionItem,strPlatform,md_estimate,formatted_dl_estimate,dl_reason,assignedBEId,arrApproverMentioned);
     let slackResponse = await client.chat.postMessage({
