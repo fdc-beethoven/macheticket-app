@@ -149,8 +149,12 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
       channel: view.blocks[5].elements[1].text,
       thread_ts: view.blocks[5].elements[0].text,
       blocks: estimateBlock,
+      text: `<@${requesterId}> is requesting estimation approval.`,
       icon_url: requesterProfilePhotoUrl,
     });
+    let slackAssigneeName = (await client.users.info({user: body.user.id})).user.profile.display_name;
+    let jiraAssigneeId = await getJiraAccountId(slackAssigneeName)[0].accountId;
+    console.log(jiraAssigneeId);
     let jiraResponse = await updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate);
     console.log(slackResponse.ok, jiraResponse.status);
   }
@@ -935,4 +939,10 @@ async function getJiraComponents() {
   });
 
   return response.data.map(({ name }) => name);
+}
+
+async function getJiraAccountId(slackDisplayName) {
+  axios.get(`https://native-camp.atlassian.net/rest/api/3/user?query=${slackDisplayName}`, {
+    headers: jiraHeaders
+  });
 }
