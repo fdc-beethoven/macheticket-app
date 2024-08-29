@@ -1,9 +1,6 @@
 const { App, ExpressReceiver } = require("@slack/bolt");
 const axios = require("axios");
 
-const dateToday = new Date();
-let formattedTodayDate = dateToday.toISOString().split("T")[0];
-
 const slackIdRegex = /<@(.+?)>/;
 
 const jiraUser = process.env.JIRA_USERNAME;
@@ -100,6 +97,7 @@ app.command("/post-ticket", async ({ command, ack, respond, client }) => {
 app.command("/estimate", async ({ command, ack, respond, client }) => {
   await ack();
   let requestKey = command.text.trim();
+  let formattedTodayDate = new Date().toISOString().split("T")[0];
   try {
     let jiraData = await fetchJiraIssue(requestKey);
     let slackLink = jiraData.slackUrl;
@@ -430,7 +428,7 @@ app.use(async ({ ack, client, body, next }) => {
   if (body.type === "interactive_message" && body.callback_id === "estimation") {
     await ack();
     let assignedBEId = body.original_message.attachments[0].fields[0].value.match(slackIdRegex)[1];
-    console.log(assignedBEId);
+    let formattedTodayDate = new Date().toISOString().split("T")[0];
     let jiraIssueRegex = /[A-Z]+-[0-9]+/;
     let issueKey =body.original_message.blocks[0].elements[0].elements[2].text.match(jiraIssueRegex);
     let estimateModal = createEstimateModal(issueKey, formattedTodayDate, body.message_ts, body.channel.id, assignedBEId);
