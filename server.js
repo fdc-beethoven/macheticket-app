@@ -162,7 +162,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
   let requester = body.message.blocks[0].text.text.replace(" is requesting estimation approval.", "").split("\n")[1];
   let whoApprovedProfile = await client.users.profile.get({user: whoClickedApprove,});
   let whoApprovedProfilePhotoUrl = whoApprovedProfile.profile.image_original;
-  let approver = body.message.blocks[0].text.text.match(slackIdRegex);
+  let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
   let canApprove =approver.includes(whoClickedApprove) || whoClickedApprove === pmUserId;
   let originalMessage = body.message.blocks;
   let assignedBE = originalMessage[originalMessage.length - 1].elements[0].text;
@@ -219,7 +219,7 @@ app.action("estimate_denied", async ({ ack, body, client }) => {
   await ack();
   let originalMessage = body.message.blocks;
   let requester = body.message.blocks[0].text.text.replace(" is requesting estimation approval.", "").split("\n")[1];
-  let approver = body.message.blocks[0].text.text.match(slackIdRegex);
+  let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
   let whoClickedDeny = body.user.id;
   originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
   let canDeny = approver.includes(whoClickedDeny) || whoClickedDeny === pmUserId;
