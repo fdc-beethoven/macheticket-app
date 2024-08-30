@@ -1,9 +1,6 @@
 const { App, ExpressReceiver } = require("@slack/bolt");
 const axios = require("axios");
 
-const dateToday = new Date();
-let formattedTodayDate = dateToday.toISOString().split("T")[0];
-
 const slackIdRegex = /<@(.+?)>/;
 
 const jiraUser = process.env.JIRA_USERNAME;
@@ -100,6 +97,7 @@ app.command("/post-ticket", async ({ command, ack, respond, client }) => {
 app.command("/estimate", async ({ command, ack, respond, client }) => {
   await ack();
   let requestKey = command.text.trim();
+  let formattedTodayDate = new Date().toISOString().split("T")[0];
   try {
     let jiraData = await fetchJiraIssue(requestKey);
     let slackLink = jiraData.slackUrl;
@@ -119,7 +117,7 @@ app.command("/estimate", async ({ command, ack, respond, client }) => {
   }
 });
 
-app.view("estimation_modal", async ({ ack, view, client, body, respond }) => {
+app.view("estimation_modal", async ({ ack, view, client, body}) => {
   await ack();
   const pmUserId = process.env.PM_USER_ID;
   let requesterId = body.user.id;
@@ -135,25 +133,30 @@ app.view("estimation_modal", async ({ ack, view, client, body, respond }) => {
   let formatted_dl_estimate = formatDate(dl_estimate);
   let dl_reason = view.state.values.dl_reason.dl_reason_action.value;
   let arrPlatformLead = getLeadId(strPlatform, actionItem, issueKey);
-  let arrApproverMentioned = arrPlatformLead.every((leadId) => leadId === requesterId) ? [pmUserId] : arrPlatformLead;
+  let arrApproverMentioned = arrPlatformLead.includes(requesterId) ? [pmUserId] : arrPlatformLead;
   let assignedBEId = view.blocks[5].elements[2].text;
 
   let modal_errors = checkEstimationModalErrors(formatted_dl_estimate,md_estimate,view);
   if (Object.keys(modal_errors).length > 0) {
-    await respond({
+    await ack({
       response_action: "errors",
       errors: modal_errors,
     });
+    return;
   } else {
     let estimateBlock = createEstimateBlock(requesterId,actionItem,strPlatform,md_estimate,formatted_dl_estimate,dl_reason,assignedBEId,arrApproverMentioned);
     let slackResponse = await client.chat.postMessage({
       channel: view.blocks[5].elements[1].text,
       thread_ts: view.blocks[5].elements[0].text,
       blocks: estimateBlock,
+      text: `<@${requesterId}> is requesting estimation approval.`,
       icon_url: requesterProfilePhotoUrl,
     });
-    let jiraResponse = await updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate);
-    console.log(slackResponse.ok, jiraResponse.status);
+    let slackAssigneeName = (await client.users.info({user: body.user.id})).user.profile.display_name;
+    let jiraAssigneeId = await getJiraAccountId(slackAssigneeName);
+    console.log(jiraAssigneeId[0].accountId);
+    let jiraResponse = await updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate,jiraAssigneeId[0].accountId);
+    console.log(slackResponse.status, jiraResponse);
   }
 });
 
@@ -163,7 +166,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
   let requester = body.message.blocks[0].text.text.replace(" is requesting estimation approval.", "").split("\n")[1];
   let whoApprovedProfile = await client.users.profile.get({user: whoClickedApprove,});
   let whoApprovedProfilePhotoUrl = whoApprovedProfile.profile.image_original;
-  let approver = body.message.blocks[0].text.text.match(slackIdRegex);
+  let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
   let canApprove =approver.includes(whoClickedApprove) || whoClickedApprove === pmUserId;
   let originalMessage = body.message.blocks;
   let assignedBE = originalMessage[originalMessage.length - 1].elements[0].text;
@@ -220,7 +223,7 @@ app.action("estimate_denied", async ({ ack, body, client }) => {
   await ack();
   let originalMessage = body.message.blocks;
   let requester = body.message.blocks[0].text.text.replace(" is requesting estimation approval.", "").split("\n")[1];
-  let approver = body.message.blocks[0].text.text.match(slackIdRegex);
+  let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
   let whoClickedDeny = body.user.id;
   originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
   let canDeny = approver.includes(whoClickedDeny) || whoClickedDeny === pmUserId;
@@ -430,7 +433,7 @@ app.use(async ({ ack, client, body, next }) => {
   if (body.type === "interactive_message" && body.callback_id === "estimation") {
     await ack();
     let assignedBEId = body.original_message.attachments[0].fields[0].value.match(slackIdRegex)[1];
-    console.log(assignedBEId);
+    let formattedTodayDate = new Date().toISOString().split("T")[0];
     let jiraIssueRegex = /[A-Z]+-[0-9]+/;
     let issueKey =body.original_message.blocks[0].elements[0].elements[2].text.match(jiraIssueRegex);
     let estimateModal = createEstimateModal(issueKey, formattedTodayDate, body.message_ts, body.channel.id, assignedBEId);
@@ -448,7 +451,7 @@ app.use(async ({ ack, client, body, next }) => {
 (async () => {
   await app.start(process.env.PORT || 3000);
 
-  console.log("⚡️ Bolt app is running!" + process.env.PORT);
+  console.log("⚡️ Bolt app is running at PORT " + process.env.PORT);
 })();
 
 // ========== helper functions ==========
@@ -706,7 +709,7 @@ async function updateJiraSubtasks(
   issueKey,
   action_item,
   platform_array,
-  deadline
+  deadline, assignee
 ) {
   // Step 1: Construct JQL query
   const baseJQL = `project = MCT AND type = Sub-task AND parent = ${issueKey} AND summary ~ "${action_item}"`;
@@ -723,7 +726,6 @@ async function updateJiraSubtasks(
   const platformJQL = platformConditions.join(" OR ");
   const fullJQL = `${baseJQL} AND (${platformJQL}) ORDER BY created DESC`;
   const encodedJQLquery = encodeURIComponent(fullJQL);
-  console.log(encodedJQLquery);
 
   // Step 2: Get Jira subtasks
   const jiraUrl = `https://native-camp.atlassian.net/rest/api/3/search?jql=${encodedJQLquery}`;
@@ -731,10 +733,8 @@ async function updateJiraSubtasks(
   const jiraSubtasksResponse = await axios.get(jiraUrl, {
     headers: jiraHeaders,
   });
-  console.log(jiraSubtasksResponse);
   const jiraSubtasks = jiraSubtasksResponse.data;
   const subtaskIssueKeys = jiraSubtasks.issues.map((subtask) => subtask.key);
-  console.log(subtaskIssueKeys);
 
   // Step 3: Update Jira subtasks
   const payload = {
@@ -747,8 +747,18 @@ async function updateJiraSubtasks(
           fieldId: "customfield_10023",
         },
       ],
+      multipleSelectClearableUserPickerFields: [
+      {
+        fieldId: "assignee",
+        users: [
+          {
+            accountId: `${assignee}`,
+          }
+        ]
+      }
+    ],
     },
-    selectedActions: ["customfield_10023"],
+    selectedActions: ["customfield_10023", "assignee"],
     selectedIssueIdsOrKeys: subtaskIssueKeys,
   };
 
@@ -939,4 +949,11 @@ async function getJiraComponents() {
   });
 
   return response.data.map(({ name }) => name);
+}
+
+async function getJiraAccountId(slackDisplayName) {
+  let response = await axios.get(`https://native-camp.atlassian.net/rest/api/3/user/search?query=${slackDisplayName}`, {
+    headers: jiraHeaders
+  });
+  return response.data;
 }
