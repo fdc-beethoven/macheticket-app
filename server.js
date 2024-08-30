@@ -1,6 +1,7 @@
 const { App, ExpressReceiver } = require("@slack/bolt");
 const HELPER = require("./utils/helpers");
 const COMMON = require("./utils/common");
+const SERVICE = require("./utils/services");
 
 const expressReceiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
@@ -23,7 +24,7 @@ app.command("/post-ticket", async ({ command, ack, respond, client }) => {
   let channelId = command.channel_id;
   try {
     HELPER.validateKey(requestKey);
-    let jiraDetails = await fetchJiraIssue(requestKey);
+    let jiraDetails = await SERVICE.fetchJiraIssue(requestKey);
     let jiraIssueLink = jiraBaseUrl + requestKey;
     let payloadText = `<!here> *${jiraDetails.issueKey} ${jiraDetails.summary}* \`\`\`JIRA: <${jiraIssueLink}|${jiraIssueLink}>\`\`\``;
     let postResponse = await client.chat.postMessage({
@@ -61,7 +62,7 @@ app.command("/post-ticket", async ({ command, ack, respond, client }) => {
       ],
     });
     if (postResponse.ok) {
-      let updateResponse = await updateSlackThreadUrl(jiraDetails.issueKey,`https://fdcinc.slack.com/archives/${postResponse.channel}/p${postResponse.ts.replace(".", "")}`);
+      let updateResponse = await SERVICE.updateSlackThreadUrl(jiraDetails.issueKey,`https://fdcinc.slack.com/archives/${postResponse.channel}/p${postResponse.ts.replace(".", "")}`);
       respond({
         response_type: "ephemeral",
         text: "Ticket has been posted~",
@@ -80,11 +81,11 @@ app.command("/estimate", async ({ command, ack, respond, client }) => {
   let requestKey = command.text.trim();
   let formattedTodayDate = new Date().toISOString().split("T")[0];
   try {
-    let jiraData = await fetchJiraIssue(requestKey);
+    let jiraData = await SERVICE.fetchJiraIssue(requestKey);
     let slackLink = jiraData.slackUrl;
-    let slackTs = extractSlackTimestamp(slackLink);
-    let slackChannel = extractSlackChannelId(slackLink);
-    let estimateModal = createEstimateModal(requestKey,formattedTodayDate,slackTs,slackChannel,jiraData.assignedBE);
+    let slackTs = HELPER.extractSlackTimestamp(slackLink);
+    let slackChannel = HELPER.extractSlackChannelId(slackLink);
+    let estimateModal = HELPER.createEstimateModal(requestKey,formattedTodayDate,slackTs,slackChannel,jiraData.assignedBE);
     let response = await client.views.open({
       trigger_id: command.trigger_id,
       view: estimateModal,
@@ -110,13 +111,13 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
   let strPlatform = arrPlatform.join(", ");
   let md_estimate = view.state.values.md_estimate.md_estimate_action.value;
   let dl_estimate = view.state.values.dl_estimate.deadline_action.selected_date;
-  let formatted_dl_estimate = formatDate(dl_estimate);
+  let formatted_dl_estimate = HELPER.formatDate(dl_estimate);
   let dl_reason = view.state.values.dl_reason.dl_reason_action.value;
-  let arrPlatformLead = getLeadId(strPlatform, actionItem, issueKey);
+  let arrPlatformLead = HELPER.getLeadId(strPlatform, actionItem, issueKey);
   let arrApproverMentioned = arrPlatformLead.includes(requesterId) ? [COMMON.pmUserId] : arrPlatformLead;
   let assignedBEId = view.blocks[5].elements[2].text;
 
-  let modal_errors = checkEstimationModalErrors(formatted_dl_estimate,md_estimate,view);
+  let modal_errors = HELPER.checkEstimationModalErrors(formatted_dl_estimate,md_estimate,view);
   if (Object.keys(modal_errors).length > 0) {
     await ack({
       response_action: "errors",
@@ -124,7 +125,7 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
     });
     return;
   } else {
-    let estimateBlock = createEstimateBlock(requesterId,actionItem,strPlatform,md_estimate,formatted_dl_estimate,dl_reason,assignedBEId,arrApproverMentioned);
+    let estimateBlock = HELPER.createEstimateBlock(requesterId,actionItem,strPlatform,md_estimate,formatted_dl_estimate,dl_reason,assignedBEId,arrApproverMentioned);
     let slackResponse = await client.chat.postMessage({
       channel: view.blocks[5].elements[1].text,
       thread_ts: view.blocks[5].elements[0].text,
@@ -133,9 +134,9 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
       icon_url: requesterProfilePhotoUrl,
     });
     let slackAssigneeName = (await client.users.info({user: body.user.id})).user.profile.display_name;
-    let jiraAssigneeId = await getJiraAccountId(slackAssigneeName);
+    let jiraAssigneeId = await SERVICE.getJiraAccountId(slackAssigneeName);
     console.log(jiraAssigneeId[0].accountId);
-    let jiraResponse = await updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate,jiraAssigneeId[0].accountId);
+    let jiraResponse = await SERVICE.updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate,jiraAssigneeId[0].accountId);
     console.log(slackResponse.status, jiraResponse);
   }
 });
@@ -147,7 +148,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
   let whoApprovedProfile = await client.users.profile.get({user: whoClickedApprove,});
   let whoApprovedProfilePhotoUrl = whoApprovedProfile.profile.image_original;
   let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
-  let canApprove =approver.includes(whoClickedApprove) || whoClickedApprove === pmUserId;
+  let canApprove = approver.includes(whoClickedApprove) || whoClickedApprove === COMMON.pmUserId;
   let originalMessage = body.message.blocks;
   let assignedBE = originalMessage[originalMessage.length - 1].elements[0].text;
 
@@ -157,7 +158,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `<@${pmUserId}>\n <@${whoClickedApprove}> approved the request from ${requester}.`,
+        text: `<@${COMMON.pmUserId}>\n <@${whoClickedApprove}> approved the request from ${requester}.`,
       },
     };
     let postMessageResponse = await client.chat.postMessage({
@@ -167,7 +168,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
       icon_url: whoApprovedProfilePhotoUrl,
     });
     console.log(postMessageResponse);
-  } else if (canApprove && whoClickedApprove === pmUserId) {
+  } else if (canApprove && whoClickedApprove === COMMON.pmUserId) {
     let pmApprovedMessageBlock = [...originalMessage];
     pmApprovedMessageBlock.length === 5 ? pmApprovedMessageBlock.splice(2, 3) : pmApprovedMessageBlock.splice(3, 3);
     originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
@@ -206,7 +207,7 @@ app.action("estimate_denied", async ({ ack, body, client }) => {
   let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
   let whoClickedDeny = body.user.id;
   originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
-  let canDeny = approver.includes(whoClickedDeny) || whoClickedDeny === pmUserId;
+  let canDeny = approver.includes(whoClickedDeny) || whoClickedDeny === COMMON.pmUserId;
   let whoDeniedProfile = await client.users.profile.get({user: whoClickedDeny,});
   let whoDeniedProfilePhotoUrl = whoDeniedProfile.profile.image_original;
 
@@ -416,7 +417,7 @@ app.use(async ({ ack, client, body, next }) => {
     let formattedTodayDate = new Date().toISOString().split("T")[0];
     let jiraIssueRegex = /[A-Z]+-[0-9]+/;
     let issueKey =body.original_message.blocks[0].elements[0].elements[2].text.match(jiraIssueRegex);
-    let estimateModal = createEstimateModal(issueKey, formattedTodayDate, body.message_ts, body.channel.id, assignedBEId);
+    let estimateModal = HELPER.createEstimateModal(issueKey, formattedTodayDate, body.message_ts, body.channel.id, assignedBEId);
     let showModalResponse = await client.views.open({
       trigger_id: body.trigger_id,
       view: estimateModal,
