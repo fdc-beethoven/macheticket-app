@@ -20,5 +20,6 @@ const pmUserId = process.env.PM_USER_ID;
 module.exports = {
   jiraHeaders,
   slackIdRegex,
-  leadsUserId
+  leadsUserId,
+  pmUserId
 };
