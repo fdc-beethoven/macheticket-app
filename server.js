@@ -171,7 +171,7 @@ app.action("estimate_approved", async ({ ack, body, client }) => {
   let originalMessage = body.message.blocks;
   let assignedBE = originalMessage[originalMessage.length - 1].elements[0].text;
 
-  if (canApprove && approver.includes(whoClickedApprove)) {
+  if (canApprove && approver.includes(whoClickedApprove) && whoClickedApprove !== pmUserId) {
     originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
     originalMessage[0] = {
       type: "section",
