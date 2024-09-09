@@ -136,7 +136,7 @@ app.view("estimation_modal", async ({ ack, view, client, body}) => {
     let slackAssigneeName = (await client.users.info({user: body.user.id})).user.profile.display_name;
     let jiraAssigneeId = await SERVICE.getJiraAccountId(slackAssigneeName);
     console.log(jiraAssigneeId[0].accountId);
-    let jiraResponse = await SERVICE.updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate,jiraAssigneeId[0].accountId);
+    let jiraResponse = await SERVICE.updateJiraSubtasks(issueKey,actionItem,arrPlatform,dl_estimate,jiraAssigneeId);
     console.log(slackResponse.status, jiraResponse);
   }
 });

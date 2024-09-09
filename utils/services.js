@@ -122,7 +122,9 @@ async function getJiraAccountId(slackDisplayName) {
   let response = await axios.get(`https://native-camp.atlassian.net/rest/api/3/user/search?query=${slackDisplayName}`, {
     headers: COMMON.jiraHeaders
   });
-  return response.data;
+  const account = response.data.find(account => account.displayName === slackDisplayName);
+  console.log(account);
+  return account ? account.accountId : null;
 }
 
 module.exports = {
