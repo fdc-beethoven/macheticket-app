@@ -1,5 +1,4 @@
 const HELPER = require("../utils/helpers");
-const COMMON = require("../utils/common");
 const SERVICE = require("../utils/services");
 
 async function handlePostTicket({ command, ack, respond, client }) {
