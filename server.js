@@ -2,6 +2,7 @@ const { App, ExpressReceiver } = require("@slack/bolt");
 const HELPER = require("./utils/helpers");
 const COMMON = require("./utils/common");
 const SERVICE = require("./utils/services");
+const COMMAND = require("./controllers/command");
 
 const expressReceiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
@@ -76,28 +77,7 @@ app.command("/post-ticket", async ({ command, ack, respond, client }) => {
   }
 });
 
-app.command("/estimate", async ({ command, ack, respond, client }) => {
-  await ack();
-  let requestKey = command.text.trim();
-  let formattedTodayDate = new Date().toISOString().split("T")[0];
-  try {
-    let jiraData = await SERVICE.fetchJiraIssue(requestKey);
-    let slackLink = jiraData.slackUrl;
-    let slackTs = HELPER.extractSlackTimestamp(slackLink);
-    let slackChannel = HELPER.extractSlackChannelId(slackLink);
-    let estimateModal = HELPER.createEstimateModal(requestKey,formattedTodayDate,slackTs,slackChannel,jiraData.assignedBE);
-    let response = await client.views.open({
-      trigger_id: command.trigger_id,
-      view: estimateModal,
-    });
-    console.log(response);
-  } catch (error) {
-    await respond({
-      response_type: "ephemeral",
-      text: error.message,
-    });
-  }
-});
+app.command("/estimate", COMMAND.handleEstimate);
 
 app.view("estimation_modal", async ({ ack, view, client, body}) => {
   await ack();
