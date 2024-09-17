@@ -21,8 +21,7 @@ async function handleEstimateApproved({ ack, body, client }) {
 
   if (
     canApprove &&
-    approver.includes(whoClickedApprove) &&
-    whoClickedApprove !== COMMON.pmUserId
+    approver.includes(whoClickedApprove)
   ) {
     originalMessage.length === 5
       ? originalMessage.splice(2, 3)
@@ -31,7 +30,7 @@ async function handleEstimateApproved({ ack, body, client }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `<@${COMMON.pmUserId}>\n <@${whoClickedApprove}> approved the request from ${requester}.`,
+        text: `<@${assignedBE}>\n <@${whoClickedApprove}> approved the request from ${requester}.`,
       },
     };
     let postMessageResponse = await client.chat.postMessage({
@@ -40,8 +39,15 @@ async function handleEstimateApproved({ ack, body, client }) {
       blocks: originalMessage,
       icon_url: whoApprovedProfilePhotoUrl,
     });
-    console.log(postMessageResponse);
-  } else if (canApprove && whoClickedApprove === COMMON.pmUserId) {
+    let updateMessageResponse = await client.chat.postMessage({
+      channel: body.channel.id,
+      thread_ts: body.message.ts,
+      blocks: originalMessage,
+    })
+    console.log(postMessageResponse.ok, updateMessageResponse.ok);
+  } 
+  /*
+  else if (canApprove && whoClickedApprove === COMMON.pmUserId) {
     let pmApprovedMessageBlock = [...originalMessage];
     pmApprovedMessageBlock.length === 5
       ? pmApprovedMessageBlock.splice(2, 3)
@@ -68,7 +74,8 @@ async function handleEstimateApproved({ ack, body, client }) {
       icon_url: whoApprovedProfilePhotoUrl,
     });
     console.log(postMessageResponse.ok, updateMessageResponse.ok);
-  } else {
+  } */
+    else {
     await client.chat.postEphemeral({
       channel: body.channel.id,
       user: whoClickedApprove,
