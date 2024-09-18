@@ -19,10 +19,7 @@ async function handleEstimateApproved({ ack, body, client }) {
   let originalMessage = body.message.blocks;
   let assignedBE = originalMessage[originalMessage.length - 1].elements[0].text;
 
-  if (
-    canApprove &&
-    approver.includes(whoClickedApprove)
-  ) {
+  if (canApprove && approver.includes(whoClickedApprove)) {
     originalMessage.length === 5
       ? originalMessage.splice(2, 3)
       : originalMessage.splice(3, 3);
@@ -39,13 +36,13 @@ async function handleEstimateApproved({ ack, body, client }) {
       blocks: originalMessage,
       icon_url: whoApprovedProfilePhotoUrl,
     });
-    let updateMessageResponse = await client.chat.postMessage({
+    let updateMessageResponse = await client.chat.update({
       channel: body.channel.id,
       thread_ts: body.message.ts,
       blocks: originalMessage,
-    })
+    });
     console.log(postMessageResponse.ok, updateMessageResponse.ok);
-  } 
+  } else {
   /*
   else if (canApprove && whoClickedApprove === COMMON.pmUserId) {
     let pmApprovedMessageBlock = [...originalMessage];
@@ -75,7 +72,6 @@ async function handleEstimateApproved({ ack, body, client }) {
     });
     console.log(postMessageResponse.ok, updateMessageResponse.ok);
   } */
-    else {
     await client.chat.postEphemeral({
       channel: body.channel.id,
       user: whoClickedApprove,
@@ -84,40 +80,49 @@ async function handleEstimateApproved({ ack, body, client }) {
   }
 }
 
-async function handleEstimateDenied ({ ack, body, client }) {
-    await ack();
-    let originalMessage = body.message.blocks;
-    let requester = body.message.blocks[0].text.text.replace(" is requesting estimation approval.", "").split("\n")[1];
-    let approver = body.message.blocks[0].text.text.match(/U[A-Z0-9]+/g).slice(0, -1);
-    let whoClickedDeny = body.user.id;
-    originalMessage.length === 5 ? originalMessage.splice(2, 3) : originalMessage.splice(3, 3);
-    let canDeny = approver.includes(whoClickedDeny) || whoClickedDeny === COMMON.pmUserId;
-    let whoDeniedProfile = await client.users.profile.get({user: whoClickedDeny,});
-    let whoDeniedProfilePhotoUrl = whoDeniedProfile.profile.image_original;
-  
-    if (canDeny) {
-      let postMessageResponse = await client.chat.postMessage({
-        channel: body.channel.id,
-        thread_ts: body.message.ts,
-        text: `${requester}\n<@${whoClickedDeny}> has denied your estimation request. Please re-assess MD and DL.`,
-        icon_url: whoDeniedProfilePhotoUrl,
-      });
-      let updateMessageResponse = await client.chat.update({
-        channel: body.channel.id,
-        ts: body.message.ts,
-        blocks: originalMessage,
-      });
-      console.log(postMessageResponse.ok, updateMessageResponse.ok);
-    } else {
-      await client.chat.postEphemeral({
-        channel: body.channel.id,
-        user: whoClickedDeny,
-        text: "You do not have permission to deny this request.",
-      });
-    }
+async function handleEstimateDenied({ ack, body, client }) {
+  await ack();
+  let originalMessage = body.message.blocks;
+  let requester = body.message.blocks[0].text.text
+    .replace(' is requesting estimation approval.', '')
+    .split('\n')[1];
+  let approver = body.message.blocks[0].text.text
+    .match(/U[A-Z0-9]+/g)
+    .slice(0, -1);
+  let whoClickedDeny = body.user.id;
+  originalMessage.length === 5
+    ? originalMessage.splice(2, 3)
+    : originalMessage.splice(3, 3);
+  let canDeny =
+    approver.includes(whoClickedDeny) || whoClickedDeny === COMMON.pmUserId;
+  let whoDeniedProfile = await client.users.profile.get({
+    user: whoClickedDeny,
+  });
+  let whoDeniedProfilePhotoUrl = whoDeniedProfile.profile.image_original;
+
+  if (canDeny) {
+    let postMessageResponse = await client.chat.postMessage({
+      channel: body.channel.id,
+      thread_ts: body.message.ts,
+      text: `${requester}\n<@${whoClickedDeny}> has denied your estimation request. Please re-assess MD and DL.`,
+      icon_url: whoDeniedProfilePhotoUrl,
+    });
+    let updateMessageResponse = await client.chat.update({
+      channel: body.channel.id,
+      ts: body.message.ts,
+      blocks: originalMessage,
+    });
+    console.log(postMessageResponse.ok, updateMessageResponse.ok);
+  } else {
+    await client.chat.postEphemeral({
+      channel: body.channel.id,
+      user: whoClickedDeny,
+      text: 'You do not have permission to deny this request.',
+    });
   }
+}
 
 module.exports = {
   handleEstimateApproved,
-  handleEstimateDenied
+  handleEstimateDenied,
 };
