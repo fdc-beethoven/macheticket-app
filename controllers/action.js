@@ -38,7 +38,7 @@ async function handleEstimateApproved({ ack, body, client }) {
     });
     let updateMessageResponse = await client.chat.update({
       channel: body.channel.id,
-      thread_ts: body.message.ts,
+      ts: body.message.ts,
       blocks: originalMessage,
     });
     console.log(postMessageResponse.ok, updateMessageResponse.ok);
