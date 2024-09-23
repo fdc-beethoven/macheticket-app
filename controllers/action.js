@@ -2,48 +2,53 @@ const COMMON = require('../utils/common');
 
 async function handleEstimateApproved({ ack, body, client }) {
   await ack();
-  let whoClickedApprove = body.user.id;
-  let requester = body.message.blocks[0].text.text
+  const whoClickedApprove = body.user.id;
+  const requester = body.message.blocks[0].text.text
     .replace(' is requesting estimation approval.', '')
     .split('\n')[1];
-  let whoApprovedProfile = await client.users.profile.get({
+  const whoApprovedProfile = await client.users.profile.get({
     user: whoClickedApprove,
   });
-  let whoApprovedProfilePhotoUrl = whoApprovedProfile.profile.image_original;
-  let approver = body.message.blocks[0].text.text
+  const whoApprovedProfilePhotoUrl = whoApprovedProfile.profile.image_original;
+  const approver = body.message.blocks[0].text.text
     .match(/U[A-Z0-9]+/g)
     .slice(0, -1);
-  let canApprove =
+  const canApprove =
     approver.includes(whoClickedApprove) ||
     whoClickedApprove === COMMON.pmUserId;
-  let originalMessage = body.message.blocks;
-  let assignedBE = originalMessage[originalMessage.length - 1].elements[0].text;
+  const originalMessage = body.message.blocks;
+  const assignedBE =
+    originalMessage[originalMessage.length - 1].elements[0].text;
 
   if (canApprove && approver.includes(whoClickedApprove)) {
     originalMessage.length === 5
       ? originalMessage.splice(2, 3)
       : originalMessage.splice(3, 3);
-    originalMessage[0] = {
+    const leadApprovedMessageBlock = [...originalMessage];
+    leadApprovedMessageBlock.length === 5
+      ? leadApprovedMessageBlock.splice(2, 3)
+      : leadApprovedMessageBlock.splice(3, 3);
+    leadApprovedMessageBlock[0] = {
       type: 'section',
       text: {
         type: 'mrkdwn',
         text: `<@${assignedBE}>\n <@${whoClickedApprove}> approved the request from ${requester}.`,
       },
     };
-    let postMessageResponse = await client.chat.postMessage({
+    const postMessageResponse = await client.chat.postMessage({
       channel: body.channel.id,
       thread_ts: body.message.ts,
-      blocks: originalMessage,
+      blocks: leadApprovedMessageBlock,
       icon_url: whoApprovedProfilePhotoUrl,
     });
-    let updateMessageResponse = await client.chat.update({
+    const updateMessageResponse = await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
       blocks: originalMessage,
     });
     console.log(postMessageResponse.ok, updateMessageResponse.ok);
   } else {
-  /*
+    /*
   else if (canApprove && whoClickedApprove === COMMON.pmUserId) {
     let pmApprovedMessageBlock = [...originalMessage];
     pmApprovedMessageBlock.length === 5
@@ -82,32 +87,32 @@ async function handleEstimateApproved({ ack, body, client }) {
 
 async function handleEstimateDenied({ ack, body, client }) {
   await ack();
-  let originalMessage = body.message.blocks;
-  let requester = body.message.blocks[0].text.text
+  const originalMessage = body.message.blocks;
+  const requester = body.message.blocks[0].text.text
     .replace(' is requesting estimation approval.', '')
     .split('\n')[1];
-  let approver = body.message.blocks[0].text.text
+  const approver = body.message.blocks[0].text.text
     .match(/U[A-Z0-9]+/g)
     .slice(0, -1);
-  let whoClickedDeny = body.user.id;
+  const whoClickedDeny = body.user.id;
   originalMessage.length === 5
     ? originalMessage.splice(2, 3)
     : originalMessage.splice(3, 3);
-  let canDeny =
+  const canDeny =
     approver.includes(whoClickedDeny) || whoClickedDeny === COMMON.pmUserId;
-  let whoDeniedProfile = await client.users.profile.get({
+  const whoDeniedProfile = await client.users.profile.get({
     user: whoClickedDeny,
   });
-  let whoDeniedProfilePhotoUrl = whoDeniedProfile.profile.image_original;
+  const whoDeniedProfilePhotoUrl = whoDeniedProfile.profile.image_original;
 
   if (canDeny) {
-    let postMessageResponse = await client.chat.postMessage({
+    const postMessageResponse = await client.chat.postMessage({
       channel: body.channel.id,
       thread_ts: body.message.ts,
       text: `${requester}\n<@${whoClickedDeny}> has denied your estimation request. Please re-assess MD and DL.`,
       icon_url: whoDeniedProfilePhotoUrl,
     });
-    let updateMessageResponse = await client.chat.update({
+    const updateMessageResponse = await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
       blocks: originalMessage,
